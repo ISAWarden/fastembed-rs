@@ -7,6 +7,7 @@ use crate::{
     EmbeddingModel, QuantizationMode,
 };
 use ort::{execution_providers::ExecutionProviderDispatch, session::Session};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokenizers::Tokenizer;
 
@@ -127,7 +128,7 @@ impl From<InitOptions> for InitOptionsUserDefined {
 /// Struct for "bring your own" embedding models
 ///
 /// The onnx_file and tokenizer_files are expecting the files' bytes
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct UserDefinedEmbeddingModel {
     pub onnx_file: Vec<u8>,

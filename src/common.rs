@@ -1,6 +1,7 @@
 use anyhow::Result;
 #[cfg(feature = "hf-hub")]
 use hf_hub::api::sync::ApiRepo;
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::{fs::File, path::PathBuf};
 use tokenizers::{AddedToken, PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
@@ -19,7 +20,7 @@ pub type Embedding = Vec<f32>;
 pub type Error = anyhow::Error;
 
 // Tokenizer files for "bring your own" models
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenizerFiles {
     pub tokenizer_file: Vec<u8>,
     pub config_file: Vec<u8>,

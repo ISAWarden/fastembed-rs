@@ -1,6 +1,7 @@
 use ndarray::{s, Array2, ArrayView, Dim, Dimension, IxDynImpl};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pooling {
     Cls,
     Mean,
