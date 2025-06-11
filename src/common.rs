@@ -1,12 +1,16 @@
 use anyhow::Result;
 #[cfg(feature = "hf-hub")]
-use hf_hub::api::sync::ApiRepo;
+use hf_hub::api::sync::{ApiBuilder, ApiRepo};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::{fs::File, path::PathBuf};
 use tokenizers::{AddedToken, PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
-pub const DEFAULT_CACHE_DIR: &str = ".fastembed_cache";
+const DEFAULT_CACHE_DIR: &str = ".fastembed_cache";
+
+pub fn get_cache_dir() -> String {
+    std::env::var("FASTEMBED_CACHE_DIR").unwrap_or(DEFAULT_CACHE_DIR.into())
+}
 
 pub struct SparseEmbedding {
     pub indices: Vec<usize>,
@@ -147,4 +151,31 @@ pub fn read_file_to_bytes(file: &PathBuf) -> Result<Vec<u8>> {
     let mut buffer = Vec::with_capacity(file_size);
     file.read_to_end(&mut buffer)?;
     Ok(buffer)
+}
+
+/// Pulls a model repo from HuggingFace..
+/// HF_HOME decides the location of the cache folder
+/// HF_ENDPOINT modifies the URL for the HuggingFace location.
+#[cfg(feature = "hf-hub")]
+pub fn pull_from_hf(
+    model_name: String,
+    default_cache_dir: PathBuf,
+    show_download_progress: bool,
+) -> anyhow::Result<ApiRepo> {
+    use std::env;
+
+    let cache_dir = env::var("HF_HOME")
+        .map(PathBuf::from)
+        .unwrap_or(default_cache_dir);
+
+    let endpoint = env::var("HF_ENDPOINT").unwrap_or_else(|_| "https://huggingface.co".to_string());
+
+    let api = ApiBuilder::new()
+        .with_cache_dir(cache_dir)
+        .with_endpoint(endpoint)
+        .with_progress(show_download_progress)
+        .build()?;
+
+    let repo = api.model(model_name);
+    Ok(repo)
 }

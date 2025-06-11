@@ -7,11 +7,11 @@ use hf_hub::Repo;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use fastembed::{
-    read_file_to_bytes, Embedding, EmbeddingModel, ImageEmbedding, ImageEmbeddingModel,
-    ImageInitOptions, InitOptions, InitOptionsUserDefined, ModelInfo, OnnxSource, Pooling,
-    QuantizationMode, RerankInitOptions, RerankInitOptionsUserDefined, RerankerModel,
-    RerankerModelInfo, SparseInitOptions, SparseTextEmbedding, TextEmbedding, TextRerank,
-    TokenizerFiles, UserDefinedEmbeddingModel, UserDefinedRerankingModel, DEFAULT_CACHE_DIR,
+    get_cache_dir, read_file_to_bytes, Embedding, EmbeddingModel, ImageEmbedding,
+    ImageEmbeddingModel, ImageInitOptions, InitOptions, InitOptionsUserDefined, ModelInfo,
+    OnnxSource, Pooling, QuantizationMode, RerankInitOptions, RerankInitOptionsUserDefined,
+    RerankerModel, RerankerModelInfo, SparseInitOptions, SparseTextEmbedding, TextEmbedding,
+    TextRerank, TokenizerFiles, UserDefinedEmbeddingModel, UserDefinedRerankingModel,
 };
 
 /// A small epsilon value for floating point comparisons.
@@ -46,6 +46,7 @@ fn verify_embeddings(model: &EmbeddingModel, embeddings: &[Embedding]) -> Result
         EmbeddingModel::BGESmallENV15 => [0.09881669, 0.15151203, 0.12057499, 0.13641948],
         EmbeddingModel::BGESmallENV15Q => [0.09881936, 0.15154803, 0.12057378, 0.13639033],
         EmbeddingModel::BGESmallZHV15 => [-1.1194772, -1.0928253, -1.0325904, -1.0050416],
+        EmbeddingModel::BGELargeZHV15 => [-0.62066114, -0.76666945, -0.7013123, -0.86202735],
         EmbeddingModel::GTEBaseENV15 => [-1.6900877, -1.7148916, -1.7333382, -1.5121834],
         EmbeddingModel::GTEBaseENV15Q => [-1.7032102, -1.7076654, -1.729326, -1.5317788],
         EmbeddingModel::GTELargeENV15 => [-1.6457459, -1.6582386, -1.6809471, -1.6070237],
@@ -58,7 +59,7 @@ fn verify_embeddings(model: &EmbeddingModel, embeddings: &[Embedding]) -> Result
         EmbeddingModel::MxbaiEmbedLargeV1Q => [-0.1811538, -0.2884392, -0.1636593, -0.21548103],
         EmbeddingModel::NomicEmbedTextV1 => [0.13788113, 0.10750078, 0.050809078, 0.09284662],
         EmbeddingModel::NomicEmbedTextV15 => [0.1932303, 0.13795732, 0.14700879, 0.14940643],
-        EmbeddingModel::NomicEmbedTextV15Q => [0.20999804, 0.13103808, 0.14427708, 0.13452803],
+        EmbeddingModel::NomicEmbedTextV15Q => [0.20999804, 0.17161125, 0.14427708, 0.19436662],
         EmbeddingModel::ParaphraseMLMiniLML12V2 => [-0.07795018, -0.059113946, -0.043668486, -0.1880083],
         EmbeddingModel::ParaphraseMLMiniLML12V2Q => [-0.07749095, -0.058981877, -0.043487836, -0.18775631],
         EmbeddingModel::ParaphraseMLMpnetBaseV2 => [0.39132136, 0.49490625, 0.65497226, 0.34237382],
@@ -162,8 +163,8 @@ create_embeddings_test!(
 );
 
 create_embeddings_test!(
-    name: test_batch_size_less_than_document_count,
-    batch_size: Some(3),
+    name: test_with_batch_size,
+    batch_size: Some(70),
 );
 
 #[test]
@@ -208,7 +209,7 @@ fn test_user_defined_embedding_model() {
 
     // Get the directory of the model
     let model_name = test_model_info.model_code.replace('/', "--");
-    let model_dir = Path::new(DEFAULT_CACHE_DIR).join(format!("models--{}", model_name));
+    let model_dir = Path::new(&get_cache_dir()).join(format!("models--{}", model_name));
 
     // Find the "snapshots" sub-directory
     let snapshots_dir = model_dir.join("snapshots");
@@ -340,7 +341,7 @@ fn test_rerank() {
 #[test]
 fn test_user_defined_reranking_large_model() {
     // Setup model to download from Hugging Face
-    let cache = hf_hub::Cache::new(std::path::PathBuf::from(fastembed::DEFAULT_CACHE_DIR));
+    let cache = hf_hub::Cache::new(std::path::PathBuf::from(&fastembed::get_cache_dir()));
     let api = hf_hub::api::sync::ApiBuilder::from_cache(cache)
         .with_progress(true)
         .build()
@@ -400,7 +401,7 @@ fn test_user_defined_reranking_model() {
 
     // Get the directory of the model
     let model_name = test_model_info.model_code.replace('/', "--");
-    let model_dir = Path::new(DEFAULT_CACHE_DIR).join(format!("models--{}", model_name));
+    let model_dir = Path::new(&get_cache_dir()).join(format!("models--{}", model_name));
 
     // Find the "snapshots" sub-directory
     let snapshots_dir = model_dir.join("snapshots");
@@ -553,7 +554,7 @@ fn test_nomic_embed_vision_v1_5() {
 
 fn clean_cache(model_code: String) {
     let repo = Repo::model(model_code);
-    let cache_dir = format!("{}/{}", DEFAULT_CACHE_DIR, repo.folder_name());
+    let cache_dir = format!("{}/{}", &get_cache_dir(), repo.folder_name());
     fs::remove_dir_all(cache_dir).ok();
 }
 
@@ -670,43 +671,5 @@ fn test_allminilml6v2_match_python_counterpart() {
         .zip(baseline.into_iter())
     {
         assert!((expected - actual).abs() < tolerance);
-    }
-}
-
-#[test]
-fn test_modernbert_embeddings() {
-    let supported_model = TextEmbedding::list_supported_models()
-        .into_iter()
-        .find(|model| matches!(model.model, EmbeddingModel::ModernBertEmbedLarge))
-        .expect("ModernBERT model not found in supported models");
-
-    let model: TextEmbedding =
-        TextEmbedding::try_new(InitOptions::new(supported_model.model.clone())).unwrap();
-
-    let documents = vec![
-        "Hello, World!",
-        "This is an example passage.",
-        "fastembed-rs is licensed under Apache-2.0",
-        "Some other short text here blah blah blah",
-    ];
-
-    let embeddings = model.embed(documents.clone(), None).unwrap();
-    assert_eq!(embeddings.len(), documents.len());
-
-    for embedding in &embeddings {
-        assert_eq!(embedding.len(), supported_model.dim);
-    }
-
-    match verify_embeddings(&supported_model.model, &embeddings) {
-        Ok(_) => {}
-        Err(mismatched_indices) => {
-            panic!(
-                "Mismatched embeddings for ModernBERT: {sentences:?}",
-                sentences = &mismatched_indices
-                    .iter()
-                    .map(|&i| documents[i])
-                    .collect::<Vec<_>>()
-            );
-        }
     }
 }

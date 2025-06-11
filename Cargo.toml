@@ -1,8 +1,8 @@
 [package]
 name = "fastembed"
-version = "4.5.0"
+version = "4.9.1"
 edition = "2021"
-description = "Rust implementation of https://github.com/qdrant/fastembed"
+description = "Library for generating vector embeddings, reranking locally."
 license = "Apache-2.0"
 authors = [
   "Anush008 <anushshetty90@gmail.com>",
@@ -33,6 +33,7 @@ rayon = { version = "1.10", default-features = false }
 serde = "1.0.218"
 serde_json = { version = "1" }
 tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
+ort-sys = { version = "=2.0.0-rc.9", default-features = false }
 
 [features]
 default = ["ort-download-binaries", "hf-hub-native-tls"]
